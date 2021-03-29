@@ -1,0 +1,5 @@
+﻿  main.cpp
+C:\Users\maxmi\Documents\FH\CGB\Project\HW1\main.cpp(119,18): warning C4305: "Initialisierung": Verkürzung von "double" in "float"
+C:\Users\maxmi\Documents\FH\CGB\Project\HW1\main.cpp(86,1): warning C4244: "+=": Konvertierung von "double" in "float", möglicher Datenverlust
+C:\Users\maxmi\Documents\FH\CGB\Project\HW1\main.cpp(194,36): warning C4305: "Argument": Verkürzung von "double" in "GLclampf"
+  HW1.vcxproj -> C:\Users\maxmi\Documents\FH\CGB\Project\CGB4_Code\x64\Debug\HW1.exe
