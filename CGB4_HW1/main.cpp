@@ -14,15 +14,28 @@ enum class jumpState { none, up, down };
 
 enum class direction { forward, backward, left, right };
 
+
 class vector2 {
 	public:
 	vector2(double xval = 0.0, double yval = 0.0)
 		: x{ xval }
 		, y{ yval } { }
 
+	vector2(int xval, int yval)
+		: x{ double(xval) }
+		, y{ double(yval) } { }
+
 	virtual void reverse() {
 		x = -x;
 		y = -y;
+	}
+
+	double distanceTo(vector2 v) {
+		float x1 = this->x - v.x;
+		float y1 = this->y - v.y;
+		float a = pow(x1, 2);
+		float b = pow(y1, 2);
+		return sqrt(a + b);
 	}
 
 	double x, y;
@@ -43,6 +56,22 @@ class vector3 : public vector2 {
 	double z;
 };
 
+vector2 getWorldCoordsFromGbCoords(vector2 v) {
+	vector2 temp{ -MAZE_WIDTH / 2 + v.x * SEGMENT_SIZE + SEGMENT_SIZE / 2,
+				   MAZE_WIDTH / 2 - v.y * SEGMENT_SIZE - SEGMENT_SIZE / 2 };
+	return temp;
+}
+
+ostream& operator<< (ostream& lhs, const vector2 rhs) {
+	lhs << "{" << rhs.x << ", " << rhs.y << "}";
+	return lhs;
+}
+
+ostream& operator<< (ostream& lhs, const vector3 rhs) {
+	lhs << "{" << rhs.x << ", " << rhs.y << ", " << rhs.z << "}";
+	return lhs;
+}
+
 class camera {
 	public:
 		camera() { }
@@ -51,6 +80,28 @@ class camera {
 			pos.x += delta.x * moveSpeed;
 			pos.y += delta.y * moveSpeed;
 			pos.z += delta.z * moveSpeed;
+			updateGbPos();
+		}
+
+		void updateGbPos() {
+			int gbX = 0;
+			int gbZ = 0;
+			vector2 closest{};
+			double distClosest = 100.0;
+			for (int i = 0; i < MAZE_SIZE; i++) {
+				for (int j = 0; j < MAZE_SIZE; j++) {
+					auto worldCoord = getWorldCoordsFromGbCoords(vector2{ i, j });
+					double dist = vector2{ pos.x, pos.z }.distanceTo(worldCoord);
+					if (dist < distClosest) {
+						closest = worldCoord;
+						distClosest = dist;
+						gbX = i;
+						gbZ = j;
+					}
+				}
+			}
+
+			gbPos = vector2{ gbX, gbZ };
 		}
 
 		void move(direction dir) {
@@ -74,6 +125,8 @@ class camera {
 				default:
 					break;
 			}
+
+			updateGbPos();
 		}
 
 		void look(vector3 delta) {
@@ -104,6 +157,10 @@ class camera {
 			return temp;
 		}
 
+		vector2 getGameBoardCoords() {
+			return gbPos;
+		}
+
 		void setY(double y) {
 			pos.y = y;
 		}
@@ -113,7 +170,8 @@ class camera {
 		}
 
 	private:
-		vector3 pos{0.0, 1.0, 5.0};
+		vector2 gbPos{ 5.0, 4.0 };
+		vector3 pos{1.0, 1.0, 1.0};
 		vector3 los{0.0, 1.0, -1.0};
 		float moveSpeed{ 0.5 };
 		float lookSpeed{ 0.01 };
@@ -123,13 +181,13 @@ class camera {
 int windowid;
 int maze[MAZE_SIZE][MAZE_SIZE] = {
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 1, 1, 1, 1, 1, 1, 1, 0, 1},
-	{1, 0, 0, 1, 0, 0, 0, 1, 0, 1},
-	{1, 0, 1, 1, 0, 1, 1, 1, 0, 1},
+	{1, 0, 1, 0, 0, 0, 1, 0, 1, 1},
+	{1, 0, 1, 0, 1, 0, 0, 0, 0, 1},
+	{1, 0, 1, 1, 1, 0, 1, 1, 0, 1},
+	{1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 1, 0, 1},
+	{1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
+	{1, 0, 1, 1, 0, 1, 1, 1, 1, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
@@ -137,19 +195,35 @@ int maze[MAZE_SIZE][MAZE_SIZE] = {
 camera player;
 jumpState jumping = jumpState::none;
 
+bool cameraCollides() {
+	vector2 gbCoord = player.getGameBoardCoords();
+
+	cout << "Camera:        " << player.getPos() << endl;
+	cout << "True GB Coord: " << gbCoord << endl;
+	//cout << "GB Coord:      " << "{" << gbCoord.x / SEGMENT_SIZE << ", " << gbCoord.y / SEGMENT_SIZE << "}\n";
+	cout << "True Blocked:  " << maze[int(gbCoord.x)][int(gbCoord.y)] << endl;
+	//cout << "Blocked:       " << maze[int(gbCoord.x)][int(gbCoord.y)] << endl;
+
+	return (maze[int(gbCoord.x)][int(gbCoord.y)] == 1);
+}
+
 void keyboard(unsigned char key, int x, int y) {
 	switch (key) {
 	case 'a': // lowercase character 'a'
 		player.move(direction::left);
+		if (cameraCollides()) player.move(direction::right);
 		break;
 	case 'd': // lowercase character 'd'
 		player.move(direction::right);
+		if (cameraCollides()) player.move(direction::left);
 		break;
 	case 'w': // lowercase character 'w'
 		player.move(direction::forward);
+		if (cameraCollides()) player.move(direction::backward);
 		break;
 	case 's': // lowercase character 's'
 		player.move(direction::backward);
+		if (cameraCollides()) player.move(direction::forward);
 		break;
 	case ' ': // space
 		if (jumping == jumpState::none) {
@@ -212,8 +286,8 @@ void drawLabyrinth(void) {
 		for (int j = 0; j < MAZE_SIZE; j++) {
 			if (maze[i][j] == 1) {
 				glPushMatrix();
-				glTranslated(-MAZE_WIDTH / 2 + i * SEGMENT_SIZE + SEGMENT_SIZE / 2, SEGMENT_SIZE / 2, -MAZE_WIDTH / 2 + j * SEGMENT_SIZE + SEGMENT_SIZE / 2);
-				glScaled(0.99, 0.99, 0.99);
+				auto tmp = getWorldCoordsFromGbCoords(vector2{ i, j });
+				glTranslated(tmp.x, SEGMENT_SIZE / 2, tmp.y);
 				glutSolidCube(SEGMENT_SIZE + 0.1);
 				glPopMatrix();
 			}
@@ -258,7 +332,8 @@ int main(int argc, char** argv) {
 
 	glutKeyboardFunc(keyboard);
 	glutPassiveMotionFunc(moveCamera);
-
+	glutSetCursor(GLUT_CURSOR_NONE);
+	
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glutReshapeFunc(reshapeFunc);
 	glutDisplayFunc(drawGame);
