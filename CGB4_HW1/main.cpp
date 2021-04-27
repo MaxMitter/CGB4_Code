@@ -449,8 +449,8 @@ void drawGame(void) {
 
 	drawSky();
 	drawFloor();
-	drawLabyrinth();
 	drawItems();
+	drawLabyrinth();
 
 	glutSwapBuffers();
 }
