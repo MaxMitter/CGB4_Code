@@ -11,15 +11,31 @@ using namespace std;
 // HAS TO BE EVEN
 #define MAX_CARDS 6
 
+#define SELECT_BORDER_THICKNESS 0.1
+
+struct vector2 {
+	float x;
+	float y;
+};
+
 struct vector3 {
 	float x;
 	float y;
 	float z;
 };
 
+struct textureMap {
+	vector2 botLeft;
+	vector2 topLeft;
+	vector2 topRight;
+	vector2 botRight;
+};
+
 struct card {
-	vector3 position{ 0, 0, 0 };
 	int id{0};
+	vector3 position{ 0, 0, 0 };
+	int groupId{ 0 };
+	textureMap texture;
 };
 
 vector3 position{ 0, 0, -11 };
@@ -33,18 +49,22 @@ unsigned int imageSize;   // = width*height*3
 unsigned char* imageData;
 
 vector<card> cards;
+int selectedId{0};
 
-	// image file Strings
-	std::string cardBack = "img/cardback.bmp";
-std::string background = "img/background.bmp";
+// image file Strings
+static std::string cardBack = "img/test.bmp";
+static std::string background = "img/background.bmp";
+static std::string cardFront = "img/front_textures.bmp";
 
 // converted to C-Strings
 char* cardBackPath = &cardBack[0];
 char* backgroundPath = &background[0];
+char* cardFrontPath = &cardFront[0];
 
 // texture names
 static GLuint cardBackName;
 static GLuint backgroundName;
+static GLuint cardFrontName;
 
 // GLUT Window ID
 int windowid;
@@ -120,9 +140,28 @@ void initCardBackTexture (void) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imageWidth, imageHeight, 0, GL_BGR, GL_UNSIGNED_BYTE, imageData);
 }
 
+void initCardFrontTexture(void) {
+	loadBMP_custom(cardFrontPath);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glGenTextures(1, &cardFrontName);
+	glBindTexture(GL_TEXTURE_2D, cardFrontName);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imageWidth, imageHeight, 0, GL_BGR, GL_UNSIGNED_BYTE, imageData);
+}
+
 void initTextures(void) {
-	initBackgroundTexture();
 	initCardBackTexture();
+	cout << "CardBack ID: " << cardBackName << endl;
+	initCardFrontTexture();
+	cout << "Front ID: " << cardFrontName << endl;
+	initBackgroundTexture();
+	cout << "Background ID: " << backgroundName << endl;
 }
 
 void displayBackground(void) {
@@ -141,37 +180,49 @@ void displayBackground(void) {
 
 void displayCard(card c) {
 	vector3 botLeft = c.position;
-	
+
 	glEnable(GL_TEXTURE_2D);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glBindTexture(GL_TEXTURE_2D, cardBackName);
-	switch(c.id) {
-		case 1:
-			glColor3f(1.0, 0.0, 0.0);
-			break;
-		case 2:
-			glColor3f(0.0, 1.0, 0.0);
-			break;
-		case 3:
-			glColor3f(0.0, 0.0, 1.0);
-			break;
-		default:
-			break;
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+	glBindTexture(GL_TEXTURE_2D, cardFrontName);
+	switch (c.id) {
+	case 1:
+		glColor3f(1.0, 0.0, 0.0);
+		break;
+	case 2:
+		glColor3f(0.0, 1.0, 0.0);
+		break;
+	case 3:
+		glColor3f(0.0, 0.0, 1.0);
+		break;
+	default:
+		break;
 	}
 	glBegin(GL_QUADS);
-		glTexCoord2f(0.0, 0.0); glVertex3f(botLeft.x, botLeft.y, botLeft.z);
-		glTexCoord2f(0.0, 1.0); glVertex3f(botLeft.x, botLeft.y + 2.25, botLeft.z);
-		glTexCoord2f(1.0, 1.0); glVertex3f(botLeft.x + 1.5, botLeft.y + 2.25, botLeft.z);
-		glTexCoord2f(1.0, 0.0); glVertex3f(botLeft.x + 1.5, botLeft.y, botLeft.z);
+		glTexCoord2f(c.texture.botLeft.x , c.texture.botLeft.y); glVertex3f(botLeft.x, botLeft.y, botLeft.z);
+		glTexCoord2f(c.texture.topLeft.x, c.texture.topLeft.y); glVertex3f(botLeft.x, botLeft.y + 1.5, botLeft.z);
+		glTexCoord2f(c.texture.topRight.x, c.texture.topRight.y); glVertex3f(botLeft.x + 1.5, botLeft.y + 1.5, botLeft.z);
+		glTexCoord2f(c.texture.botRight.x, c.texture.botRight.y); glVertex3f(botLeft.x + 1.5, botLeft.y, botLeft.z);
 	glEnd();
 	glFlush();
 	glDisable(GL_TEXTURE_2D);
+
+	if (c.id == selectedId) {
+		glPushMatrix();
+		glColor3f(0.9f, 0.91f, 0.14f);
+		glBegin(GL_QUADS);
+			glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
+			glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y + 1.5 + SELECT_BORDER_THICKNESS, botLeft.z);
+			glVertex3f(botLeft.x + 1.5 + SELECT_BORDER_THICKNESS, botLeft.y + 1.5 + SELECT_BORDER_THICKNESS, botLeft.z);
+			glVertex3f(botLeft.x + 1.5 + SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
+		glEnd();
+		glPopMatrix();
+	}
 }
 
 void display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+
 	for (auto& c : cards) {
 		displayCard(c);
 	}
@@ -184,26 +235,67 @@ void display(void)
 	glutSwapBuffers();
 }
 
-vector<int> generateRandomCardIds(void) {
-	vector<int> ids = { 1, 1, 2, 2, 3, 3 };
+vector<int> generateRandomGroupIds(void) {
+	vector<int> ids = { 0, 0, 1, 1, 2, 2 };
 	random_device rd;
 	mt19937 g(rd());
 	shuffle(ids.begin(), ids.end(), g);
 	return ids;
 }
 
+textureMap mapTexture (int groupId) {
+	textureMap map;
+
+	switch (groupId) {
+		case 0:
+			map.botLeft = vector2{ 0.0, 0.75 };
+			map.topLeft = vector2{ 0.0, 1.0 };
+			map.topRight = vector2{ 0.25, 1.0 };
+			map.botRight = vector2{ 0.25, 0.75 };
+			break;
+		case 1:
+			map.botLeft = vector2{ 0.25, 0.75 };
+			map.topLeft = vector2{ 0.25, 1.0 };
+			map.topRight = vector2{ 0.5, 1.0 };
+			map.botRight = vector2{ 0.5, 0.75 };
+			break;
+		case 2:
+			map.botLeft = vector2{ 0.5, 0.75 };
+			map.topLeft = vector2{ 0.5, 1.0 };
+			map.topRight = vector2{ 0.75, 1.0 };
+			map.botRight = vector2{ 0.75, 0.75 };
+			break;
+		case 3:
+			map.botLeft = vector2{ 0.75, 0.75 };
+			map.topLeft = vector2{ 0.75, 1.0 };
+			map.topRight = vector2{ 1.0, 1.0 };
+			map.botRight = vector2{ 1.0, 0.75 };
+			break;
+		default:
+			map.botLeft = vector2{ 0.0, 0.0 };
+			map.topLeft = vector2{ 0.0, 1.0 };
+			map.topRight = vector2{ 1.0, 1.0 };
+			map.botRight = vector2{ 1.0, 0.0 };
+			break;
+	}
+
+	return map;
+}
+
 void createCards(void) {
 	int amount = 6;
 
-	vector<int> ids = generateRandomCardIds();
+	vector<int> groupIds = generateRandomGroupIds();
 	
 	while (amount > 0) {
 		card newCard;
 		float x = (-5) + (2.5 * (amount >= 5 ? 0 : amount >= 3 ? 1 : 2));
 		float y = (amount % 2 == 0 ? 1.5 : -2.5);
+		newCard.id = MAX_CARDS - amount;
 		newCard.position = vector3{ x, y, 0 };
-		newCard.id = ids.back();
-		ids.pop_back();
+		newCard.groupId = groupIds.back();
+		newCard.texture = mapTexture(newCard.groupId);
+		groupIds.pop_back();
 		cards.push_back(newCard);
 		amount--;
 	}
@@ -214,22 +306,39 @@ void clearCards(void) {
 }
 /*-[Keyboard Callback]-------------------------------------------------------*/
 void keyboard(unsigned char key, int x, int y) {
+	int newSelectedId;
 	switch (key) {
 	case 'a': // lowercase character 'a'
 		cout << "You just pressed 'a'" << endl;
-		moveCamera(1.0, 0.0, 0.0);
+		//moveCamera(1.0, 0.0, 0.0);
+		newSelectedId = selectedId - 2;
+		if (newSelectedId >= 0) {
+			selectedId = newSelectedId;
+		}
 		break;
 	case 'd': // lowercase character 'd'
 		cout << "You just pressed 'd'" << endl;
-		moveCamera(-1.0, 0.0, 0.0);
+		//moveCamera(-1.0, 0.0, 0.0);
+		newSelectedId = selectedId + 2;
+		if (newSelectedId < MAX_CARDS) {
+			selectedId = newSelectedId;
+		}
 		break;
 	case 'w': // lowercase character 'w'
 		cout << "You just pressed 'w'" << endl;
-		moveCamera(0.0, -1.0, 0);
+		//moveCamera(0.0, -1.0, 0);
+		newSelectedId = selectedId - 1;
+		if (newSelectedId % 2 == 0) {
+			selectedId = newSelectedId;
+		}
 		break;
 	case 's': // lowercase character 's'
 		cout << "You just pressed 's'" << endl;
-		moveCamera(0.0, 1.0, 0);
+		//moveCamera(0.0, 1.0, 0);
+		newSelectedId = selectedId + 1;
+		if (newSelectedId % 2 == 1) {
+			selectedId = newSelectedId;
+		}
 		break;
 	case 'r':
 		cout << "You just pressed 'r'" << endl;
@@ -259,7 +368,18 @@ void onMouseClick(int button, int state, int x, int y) {
 		cout << "Middle button clicked at position "
 			<< "x: " << x << " y: " << y << endl;
 	} else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		cout << "Camera Position: " << "[" << position.x << ", " << position.y << ", " << position.z << "]" << endl;
+		//cout << "Camera Position: " << "[" << position.x << ", " << position.y << ", " << position.z << "]" << endl;
+		GLdouble modelView[16];
+		GLdouble projMatrix[16];
+		GLint viewport[4];
+
+		GLdouble newx, newy, newz;
+
+		glGetDoublev(GL_MODELVIEW_MATRIX, modelView);
+		glGetDoublev(GL_PROJECTION_MATRIX, projMatrix);
+		glGetIntegerv(GL_VIEWPORT, viewport);
+		
+		gluUnProject(x, y, 0, modelView, projMatrix, viewport, &newx, &newy, &newz);
 	}
 }
 
