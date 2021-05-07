@@ -9,7 +9,7 @@
 using namespace std;
 
 // HAS TO BE EVEN
-#define MAX_CARDS 6
+#define MAX_CARDS 16
 
 #define SELECT_BORDER_THICKNESS 0.1
 
@@ -39,6 +39,10 @@ struct card {
 };
 
 vector3 position{ 0, 0, -11 };
+
+int WINDOW_WIDTH = 800;
+int WINDOW_HEIGHT = 600;
+int card_rows = 2;
 
 // Data read from the header of the BMP file
 unsigned char header[54]; // Each BMP file begins by a 54-bytes header
@@ -236,7 +240,11 @@ void display(void)
 }
 
 vector<int> generateRandomGroupIds(void) {
-	vector<int> ids = { 0, 0, 1, 1, 2, 2 };
+	vector<int> ids;
+	for (int i = 0; i < (MAX_CARDS / 2); i++) {
+		ids.push_back(i);
+		ids.push_back(i);
+	}
 	random_device rd;
 	mt19937 g(rd());
 	shuffle(ids.begin(), ids.end(), g);
@@ -271,6 +279,30 @@ textureMap mapTexture (int groupId) {
 			map.topRight = vector2{ 1.0, 1.0 };
 			map.botRight = vector2{ 1.0, 0.75 };
 			break;
+		case 4:
+			map.botLeft = vector2{ 0.0, 0.5 };
+			map.topLeft = vector2{ 0.0, 0.75 };
+			map.topRight = vector2{ 0.25, 0.75 };
+			map.botRight = vector2{ 0.25, 0.5 };
+			break;
+		case 5:
+			map.botLeft = vector2{ 0.25, 0.5 };
+			map.topLeft = vector2{ 0.25, 0.75 };
+			map.topRight = vector2{ 0.5, 0.75 };
+			map.botRight = vector2{ 0.5, 0.5 };
+			break;
+		case 6:
+			map.botLeft = vector2{ 0.5, 0.5 };
+			map.topLeft = vector2{ 0.5, 0.75 };
+			map.topRight = vector2{ 0.75, 0.75 };
+			map.botRight = vector2{ 0.75, 0.5 };
+			break;
+		case 7:
+			map.botLeft = vector2{ 0.75, 0.5 };
+			map.topLeft = vector2{ 0.75, 0.75 };
+			map.topRight = vector2{ 1.0, 0.75 };
+			map.botRight = vector2{ 1.0, 0.5 };
+			break;
 		default:
 			map.botLeft = vector2{ 0.0, 0.0 };
 			map.topLeft = vector2{ 0.0, 1.0 };
@@ -283,27 +315,60 @@ textureMap mapTexture (int groupId) {
 }
 
 void createCards(void) {
-	int amount = 6;
+	int amount = 0;
+	int xdist = 0;
+
+	if (amount % 2 != 0) {
+		throw invalid_argument("There has to be an even amount of cards!");
+	}
 
 	vector<int> groupIds = generateRandomGroupIds();
 	
-	while (amount > 0) {
+	while (amount < MAX_CARDS) {
 		card newCard;
-		float x = (-5) + (2.5 * (amount >= 5 ? 0 : amount >= 3 ? 1 : 2));
-		float y = (amount % 2 == 0 ? 1.5 : -2.5);
+		float x = (-6.5) + (2.5 * xdist);
+		float y = 0;
+		if (MAX_CARDS > 15) {
+			card_rows = 4;
+			y = amount % 4 == 3 ?  2.0 :
+				amount % 4 == 2 ? -0.0 :
+			    amount % 4 == 1 ? -2.0 : -4.0;
+			if (amount % 4 == 3) xdist++;
+		} else if (MAX_CARDS > 10) {
+			card_rows = 3;
+			y = amount % 3 == 0 ? 1.5 :
+				amount % 3 == 1 ? -0.5 : -2.5;
+			if (amount % 3 == 1) xdist++;
+		} else {
+			y = (amount % 2 == 0 ? 1.0 : -1.0);
+			if (amount % 2 == 1) xdist++;
+		}
 		newCard.id = MAX_CARDS - amount;
 		newCard.position = vector3{ x, y, 0 };
 		newCard.groupId = groupIds.back();
-		newCard.texture = mapTexture(newCard.groupId);
 		groupIds.pop_back();
+		newCard.texture = mapTexture(newCard.groupId);
 		cards.push_back(newCard);
-		amount--;
+		amount++;
 	}
 }
 
 void clearCards(void) {
 	cards.clear();
 }
+
+int getClickedCard(vector2 clickedPos) {
+	int id = 0;
+	double const stepSizeY = 1.0 / card_rows;
+	double const stepSizeX = 1.0 / (MAX_CARDS / card_rows);
+	id += (int)floor(clickedPos.y / stepSizeY);
+	id += (int)floor(clickedPos.x / stepSizeX) * card_rows;
+
+	id = 1 + 2;
+	
+	return id;
+}
+
 /*-[Keyboard Callback]-------------------------------------------------------*/
 void keyboard(unsigned char key, int x, int y) {
 	int newSelectedId;
@@ -311,7 +376,7 @@ void keyboard(unsigned char key, int x, int y) {
 	case 'a': // lowercase character 'a'
 		cout << "You just pressed 'a'" << endl;
 		//moveCamera(1.0, 0.0, 0.0);
-		newSelectedId = selectedId - 2;
+		newSelectedId = selectedId - card_rows;
 		if (newSelectedId >= 0) {
 			selectedId = newSelectedId;
 		}
@@ -319,7 +384,7 @@ void keyboard(unsigned char key, int x, int y) {
 	case 'd': // lowercase character 'd'
 		cout << "You just pressed 'd'" << endl;
 		//moveCamera(-1.0, 0.0, 0.0);
-		newSelectedId = selectedId + 2;
+		newSelectedId = selectedId + card_rows;
 		if (newSelectedId < MAX_CARDS) {
 			selectedId = newSelectedId;
 		}
@@ -328,7 +393,7 @@ void keyboard(unsigned char key, int x, int y) {
 		cout << "You just pressed 'w'" << endl;
 		//moveCamera(0.0, -1.0, 0);
 		newSelectedId = selectedId - 1;
-		if (newSelectedId % 2 == 0) {
+		if (newSelectedId % card_rows == 0) {
 			selectedId = newSelectedId;
 		}
 		break;
@@ -336,7 +401,7 @@ void keyboard(unsigned char key, int x, int y) {
 		cout << "You just pressed 's'" << endl;
 		//moveCamera(0.0, 1.0, 0);
 		newSelectedId = selectedId + 1;
-		if (newSelectedId % 2 == 1) {
+		if (newSelectedId % card_rows == (card_rows - 1)) {
 			selectedId = newSelectedId;
 		}
 		break;
@@ -358,6 +423,10 @@ void keyboard(unsigned char key, int x, int y) {
 		exit(0);
 		break;
 	}
+
+	int keyid = (int)key - 47;
+	selectedId = keyid;
+	cout << "Key: " << keyid << endl;
 	
 	glutPostRedisplay();
 }
@@ -368,18 +437,11 @@ void onMouseClick(int button, int state, int x, int y) {
 		cout << "Middle button clicked at position "
 			<< "x: " << x << " y: " << y << endl;
 	} else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		//cout << "Camera Position: " << "[" << position.x << ", " << position.y << ", " << position.z << "]" << endl;
-		GLdouble modelView[16];
-		GLdouble projMatrix[16];
-		GLint viewport[4];
+		float newx = x / (WINDOW_WIDTH / 2.0f) - 1;
+		float newy = -(y / (WINDOW_HEIGHT / 2.0f) - 1);
 
-		GLdouble newx, newy, newz;
-
-		glGetDoublev(GL_MODELVIEW_MATRIX, modelView);
-		glGetDoublev(GL_PROJECTION_MATRIX, projMatrix);
-		glGetIntegerv(GL_VIEWPORT, viewport);
-		
-		gluUnProject(x, y, 0, modelView, projMatrix, viewport, &newx, &newy, &newz);
+		selectedId = getClickedCard(vector2{ newx, newy });
+		cout << "Clicked Card id: " << selectedId;
 	}
 }
 
@@ -387,6 +449,9 @@ void onMouseClick(int button, int state, int x, int y) {
 void reshapeFunc(int x, int y) {
 	if (y == 0 || x == 0) return;  //Nothing is visible then, so return
 
+	WINDOW_WIDTH = x;
+	WINDOW_HEIGHT = y;
+	
 	glMatrixMode(GL_PROJECTION); //Set a new projection matrix
 	glLoadIdentity();
 	//Angle of view: 40 degrees
@@ -405,7 +470,7 @@ int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_SINGLE | GLUT_DEPTH);
 	glutInitWindowPosition(500, 500); //determines the initial position of the window
-	glutInitWindowSize(800, 600);	  //determines the size of the window
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);	  //determines the size of the window
 	windowid = glutCreateWindow("Memory Game"); // create and name window
 	createCards();
 
@@ -420,6 +485,7 @@ int main(int argc, char** argv) {
 	glutMouseFunc(onMouseClick);
 	glutReshapeFunc(reshapeFunc);
 	glutIdleFunc(idleFunc);
+	glutFullScreen();
 
 	glutMainLoop(); // start the main loop of GLUT
 	
