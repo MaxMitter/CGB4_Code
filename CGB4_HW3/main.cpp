@@ -9,7 +9,7 @@
 using namespace std;
 
 // HAS TO BE EVEN
-#define MAX_CARDS 16
+#define MAX_CARDS 6
 
 #define SELECT_BORDER_THICKNESS 0.1
 
@@ -32,10 +32,11 @@ struct textureMap {
 };
 
 struct card {
-	int id{0};
+	int id{ 0 };
 	vector3 position{ 0, 0, 0 };
 	int groupId{ 0 };
 	textureMap texture;
+	float size;
 };
 
 vector3 position{ 0, 0, -11 };
@@ -43,6 +44,8 @@ vector3 position{ 0, 0, -11 };
 int WINDOW_WIDTH = 800;
 int WINDOW_HEIGHT = 600;
 int card_rows = 2;
+bool turning = false;
+int angle = 0;
 
 // Data read from the header of the BMP file
 unsigned char header[54]; // Each BMP file begins by a 54-bytes header
@@ -53,7 +56,9 @@ unsigned int imageSize;   // = width*height*3
 unsigned char* imageData;
 
 vector<card> cards;
-int selectedId{0};
+int selectedId{ 0 };
+int cardRows{ 0 };
+int cardCols{ 0 };
 
 // image file Strings
 static std::string cardBack = "img/test.bmp";
@@ -114,12 +119,12 @@ int loadBMP_custom(char* imagepath) {
 	fclose(file); //Everything is in memory now, the file can be closed
 }
 
-void initBackgroundTexture (void) {
+void initBackgroundTexture(void) {
 	loadBMP_custom(backgroundPath);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 	glGenTextures(1, &backgroundName);
 	glBindTexture(GL_TEXTURE_2D, backgroundName);
-	
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -129,7 +134,7 @@ void initBackgroundTexture (void) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imageWidth, imageHeight, 0, GL_BGR, GL_UNSIGNED_BYTE, imageData);
 }
 
-void initCardBackTexture (void) {
+void initCardBackTexture(void) {
 	loadBMP_custom(cardBackPath);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glGenTextures(1, &cardBackName);
@@ -173,10 +178,10 @@ void displayBackground(void) {
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 	glBindTexture(GL_TEXTURE_2D, backgroundName);
 	glBegin(GL_QUADS);
-		glTexCoord2f(0.0, 0.0); glVertex3f(-7.5, -5.0, 0.0);
-		glTexCoord2f(0.0, 1.0); glVertex3f(-7.5,  5.0, 0.0);
-		glTexCoord2f(1.0, 1.0); glVertex3f( 7.5,  5.0, 0.0);
-		glTexCoord2f(1.0, 0.0); glVertex3f( 7.5, -5.0, 0.0);
+	glTexCoord2f(0.0, 0.0); glVertex3f(-7.5, -5.0, 0.0);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-7.5, 5.0, 0.0);
+	glTexCoord2f(1.0, 1.0); glVertex3f(7.5, 5.0, 0.0);
+	glTexCoord2f(1.0, 0.0); glVertex3f(7.5, -5.0, 0.0);
 	glEnd();
 	glFlush();
 	glDisable(GL_TEXTURE_2D);
@@ -202,11 +207,12 @@ void displayCard(card c) {
 		break;
 	}
 	glBegin(GL_QUADS);
-		glTexCoord2f(c.texture.botLeft.x , c.texture.botLeft.y); glVertex3f(botLeft.x, botLeft.y, botLeft.z);
-		glTexCoord2f(c.texture.topLeft.x, c.texture.topLeft.y); glVertex3f(botLeft.x, botLeft.y + 1.5, botLeft.z);
-		glTexCoord2f(c.texture.topRight.x, c.texture.topRight.y); glVertex3f(botLeft.x + 1.5, botLeft.y + 1.5, botLeft.z);
-		glTexCoord2f(c.texture.botRight.x, c.texture.botRight.y); glVertex3f(botLeft.x + 1.5, botLeft.y, botLeft.z);
+		glTexCoord2f(c.texture.botLeft.x, c.texture.botLeft.y); glVertex3f(botLeft.x, botLeft.y, botLeft.z);
+		glTexCoord2f(c.texture.topLeft.x, c.texture.topLeft.y); glVertex3f(botLeft.x, botLeft.y + c.size, botLeft.z);
+		glTexCoord2f(c.texture.topRight.x, c.texture.topRight.y); glVertex3f(botLeft.x + c.size, botLeft.y + c.size, botLeft.z);
+		glTexCoord2f(c.texture.botRight.x, c.texture.botRight.y); glVertex3f(botLeft.x + c.size, botLeft.y, botLeft.z);
 	glEnd();
+	
 	glFlush();
 	glDisable(GL_TEXTURE_2D);
 
@@ -214,10 +220,10 @@ void displayCard(card c) {
 		glPushMatrix();
 		glColor3f(0.9f, 0.91f, 0.14f);
 		glBegin(GL_QUADS);
-			glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
-			glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y + 1.5 + SELECT_BORDER_THICKNESS, botLeft.z);
-			glVertex3f(botLeft.x + 1.5 + SELECT_BORDER_THICKNESS, botLeft.y + 1.5 + SELECT_BORDER_THICKNESS, botLeft.z);
-			glVertex3f(botLeft.x + 1.5 + SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
+		glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
+		glVertex3f(botLeft.x - SELECT_BORDER_THICKNESS, botLeft.y + c.size + SELECT_BORDER_THICKNESS, botLeft.z);
+		glVertex3f(botLeft.x + c.size + SELECT_BORDER_THICKNESS, botLeft.y + c.size + SELECT_BORDER_THICKNESS, botLeft.z);
+		glVertex3f(botLeft.x + c.size + SELECT_BORDER_THICKNESS, botLeft.y - SELECT_BORDER_THICKNESS, botLeft.z);
 		glEnd();
 		glPopMatrix();
 	}
@@ -230,7 +236,7 @@ void display(void)
 	for (auto& c : cards) {
 		displayCard(c);
 	}
-	
+
 	displayBackground();
 
 	glMatrixMode(GL_MODELVIEW);
@@ -251,105 +257,96 @@ vector<int> generateRandomGroupIds(void) {
 	return ids;
 }
 
-textureMap mapTexture (int groupId) {
+textureMap mapTexture(int groupId) {
 	textureMap map;
 
 	switch (groupId) {
-		case 0:
-			map.botLeft = vector2{ 0.0, 0.75 };
-			map.topLeft = vector2{ 0.0, 1.0 };
-			map.topRight = vector2{ 0.25, 1.0 };
-			map.botRight = vector2{ 0.25, 0.75 };
-			break;
-		case 1:
-			map.botLeft = vector2{ 0.25, 0.75 };
-			map.topLeft = vector2{ 0.25, 1.0 };
-			map.topRight = vector2{ 0.5, 1.0 };
-			map.botRight = vector2{ 0.5, 0.75 };
-			break;
-		case 2:
-			map.botLeft = vector2{ 0.5, 0.75 };
-			map.topLeft = vector2{ 0.5, 1.0 };
-			map.topRight = vector2{ 0.75, 1.0 };
-			map.botRight = vector2{ 0.75, 0.75 };
-			break;
-		case 3:
-			map.botLeft = vector2{ 0.75, 0.75 };
-			map.topLeft = vector2{ 0.75, 1.0 };
-			map.topRight = vector2{ 1.0, 1.0 };
-			map.botRight = vector2{ 1.0, 0.75 };
-			break;
-		case 4:
-			map.botLeft = vector2{ 0.0, 0.5 };
-			map.topLeft = vector2{ 0.0, 0.75 };
-			map.topRight = vector2{ 0.25, 0.75 };
-			map.botRight = vector2{ 0.25, 0.5 };
-			break;
-		case 5:
-			map.botLeft = vector2{ 0.25, 0.5 };
-			map.topLeft = vector2{ 0.25, 0.75 };
-			map.topRight = vector2{ 0.5, 0.75 };
-			map.botRight = vector2{ 0.5, 0.5 };
-			break;
-		case 6:
-			map.botLeft = vector2{ 0.5, 0.5 };
-			map.topLeft = vector2{ 0.5, 0.75 };
-			map.topRight = vector2{ 0.75, 0.75 };
-			map.botRight = vector2{ 0.75, 0.5 };
-			break;
-		case 7:
-			map.botLeft = vector2{ 0.75, 0.5 };
-			map.topLeft = vector2{ 0.75, 0.75 };
-			map.topRight = vector2{ 1.0, 0.75 };
-			map.botRight = vector2{ 1.0, 0.5 };
-			break;
-		default:
-			map.botLeft = vector2{ 0.0, 0.0 };
-			map.topLeft = vector2{ 0.0, 1.0 };
-			map.topRight = vector2{ 1.0, 1.0 };
-			map.botRight = vector2{ 1.0, 0.0 };
-			break;
+	case 0:
+		map.botLeft = vector2{ 0.0, 0.75 };
+		map.topLeft = vector2{ 0.0, 1.0 };
+		map.topRight = vector2{ 0.25, 1.0 };
+		map.botRight = vector2{ 0.25, 0.75 };
+		break;
+	case 1:
+		map.botLeft = vector2{ 0.25, 0.75 };
+		map.topLeft = vector2{ 0.25, 1.0 };
+		map.topRight = vector2{ 0.5, 1.0 };
+		map.botRight = vector2{ 0.5, 0.75 };
+		break;
+	case 2:
+		map.botLeft = vector2{ 0.5, 0.75 };
+		map.topLeft = vector2{ 0.5, 1.0 };
+		map.topRight = vector2{ 0.75, 1.0 };
+		map.botRight = vector2{ 0.75, 0.75 };
+		break;
+	case 3:
+		map.botLeft = vector2{ 0.75, 0.75 };
+		map.topLeft = vector2{ 0.75, 1.0 };
+		map.topRight = vector2{ 1.0, 1.0 };
+		map.botRight = vector2{ 1.0, 0.75 };
+		break;
+	case 4:
+		map.botLeft = vector2{ 0.0, 0.5 };
+		map.topLeft = vector2{ 0.0, 0.75 };
+		map.topRight = vector2{ 0.25, 0.75 };
+		map.botRight = vector2{ 0.25, 0.5 };
+		break;
+	case 5:
+		map.botLeft = vector2{ 0.25, 0.5 };
+		map.topLeft = vector2{ 0.25, 0.75 };
+		map.topRight = vector2{ 0.5, 0.75 };
+		map.botRight = vector2{ 0.5, 0.5 };
+		break;
+	case 6:
+		map.botLeft = vector2{ 0.5, 0.5 };
+		map.topLeft = vector2{ 0.5, 0.75 };
+		map.topRight = vector2{ 0.75, 0.75 };
+		map.botRight = vector2{ 0.75, 0.5 };
+		break;
+	case 7:
+		map.botLeft = vector2{ 0.75, 0.5 };
+		map.topLeft = vector2{ 0.75, 0.75 };
+		map.topRight = vector2{ 1.0, 0.75 };
+		map.botRight = vector2{ 1.0, 0.5 };
+		break;
+	default:
+		map.botLeft = vector2{ 0.0, 0.0 };
+		map.topLeft = vector2{ 0.0, 1.0 };
+		map.topRight = vector2{ 1.0, 1.0 };
+		map.botRight = vector2{ 1.0, 0.0 };
+		break;
 	}
 
 	return map;
 }
 
 void createCards(void) {
-	int amount = 0;
-	int xdist = 0;
+	vector2 botLeftViewport{ -6, -3.5 };
 
-	if (amount % 2 != 0) {
-		throw invalid_argument("There has to be an even amount of cards!");
-	}
-
-	vector<int> groupIds = generateRandomGroupIds();
+	if (MAX_CARDS % 4 == 0)
+		cardRows = 4;
+	else if (MAX_CARDS % 3 == 0)
+		cardRows = 3;
+	else
+		cardRows = 2;
 	
-	while (amount < MAX_CARDS) {
-		card newCard;
-		float x = (-6.5) + (2.5 * xdist);
-		float y = 0;
-		if (MAX_CARDS > 15) {
-			card_rows = 4;
-			y = amount % 4 == 3 ?  2.0 :
-				amount % 4 == 2 ? -0.0 :
-			    amount % 4 == 1 ? -2.0 : -4.0;
-			if (amount % 4 == 3) xdist++;
-		} else if (MAX_CARDS > 10) {
-			card_rows = 3;
-			y = amount % 3 == 0 ? 1.5 :
-				amount % 3 == 1 ? -0.5 : -2.5;
-			if (amount % 3 == 1) xdist++;
-		} else {
-			y = (amount % 2 == 0 ? 1.0 : -1.0);
-			if (amount % 2 == 1) xdist++;
+	cardCols = MAX_CARDS / cardRows;
+	float colSize = 12.0f / cardCols;
+	float rowSize = 7.0f / cardRows;
+	vector<int> groupIds = generateRandomGroupIds();
+	float cardSize = (colSize < rowSize) ? colSize * 0.8f : rowSize * 0.8f;
+
+	for (int i = 0; i < cardRows; i++) {
+		for (int j = 0; j < MAX_CARDS / cardRows; j++) {
+			card newCard;
+			newCard.id = cardCols * i + j;
+			newCard.groupId = groupIds.back();
+			groupIds.pop_back();
+			newCard.position = vector3{ botLeftViewport.x + (colSize * j), botLeftViewport.y + (rowSize * i), 0 };
+			newCard.texture = mapTexture(newCard.groupId);
+			newCard.size = cardSize;
+			cards.push_back(newCard);
 		}
-		newCard.id = MAX_CARDS - amount;
-		newCard.position = vector3{ x, y, 0 };
-		newCard.groupId = groupIds.back();
-		groupIds.pop_back();
-		newCard.texture = mapTexture(newCard.groupId);
-		cards.push_back(newCard);
-		amount++;
 	}
 }
 
@@ -358,15 +355,14 @@ void clearCards(void) {
 }
 
 int getClickedCard(vector2 clickedPos) {
-	int id = 0;
-	double const stepSizeY = 1.0 / card_rows;
-	double const stepSizeX = 1.0 / (MAX_CARDS / card_rows);
-	id += (int)floor(clickedPos.y / stepSizeY);
-	id += (int)floor(clickedPos.x / stepSizeX) * card_rows;
+	float colSize = 12.0f / cardCols;
+	float rowSize = 7.0f / cardRows;
 
-	id = 1 + 2;
-	
-	return id;
+	int col = ceil(((clickedPos.x + 1) * 12.0f / 2.0f) / colSize) - 1;
+	int row = ceil(((clickedPos.y + 1) * 7.0f / 2.0f) / rowSize) - 1;
+	int sid = cardCols * row + col;
+
+	return sid;
 }
 
 /*-[Keyboard Callback]-------------------------------------------------------*/
@@ -424,10 +420,10 @@ void keyboard(unsigned char key, int x, int y) {
 		break;
 	}
 
-	int keyid = (int)key - 47;
+	int keyid = (int)key - 48;
 	selectedId = keyid;
 	cout << "Key: " << keyid << endl;
-	
+
 	glutPostRedisplay();
 }
 
@@ -436,12 +432,13 @@ void onMouseClick(int button, int state, int x, int y) {
 	if (button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN) {
 		cout << "Middle button clicked at position "
 			<< "x: " << x << " y: " << y << endl;
-	} else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+	}
+	else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		float newx = x / (WINDOW_WIDTH / 2.0f) - 1;
 		float newy = -(y / (WINDOW_HEIGHT / 2.0f) - 1);
 
 		selectedId = getClickedCard(vector2{ newx, newy });
-		cout << "Clicked Card id: " << selectedId;
+		turning = true;
 	}
 }
 
@@ -451,7 +448,7 @@ void reshapeFunc(int x, int y) {
 
 	WINDOW_WIDTH = x;
 	WINDOW_HEIGHT = y;
-	
+
 	glMatrixMode(GL_PROJECTION); //Set a new projection matrix
 	glLoadIdentity();
 	//Angle of view: 40 degrees
@@ -463,7 +460,7 @@ void reshapeFunc(int x, int y) {
 }
 
 void idleFunc(void) {
-
+	
 }
 
 int main(int argc, char** argv) {
@@ -488,6 +485,6 @@ int main(int argc, char** argv) {
 	glutFullScreen();
 
 	glutMainLoop(); // start the main loop of GLUT
-	
+
 	return 0;
 }
