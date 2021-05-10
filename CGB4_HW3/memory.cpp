@@ -1,4 +1,11 @@
-#include <algorithm>
+/**
+ *
+ * @file memory.cpp
+ * @brief A simple memory game using OpenGL and GLUT
+ * @author Maximilian Mitter - S1910307074
+ * @timeSpent 20h
+ * 
+ **/
 
 #include "GL\glew.h"
 #include "GL\freeglut.h"
@@ -6,14 +13,23 @@
 #include <list>
 #include <random>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
+// forward declaration of card class
 class card;
 
-// HAS TO BE EVEN - works best with 16 cards or less
-#define MAX_CARDS 4
-#define TIME_TO_CARD_RESET 750 // Time in ms until turned cards are removed/reset
+// the amount of cards on the game board
+// this HAS TO BE EVEN - works best with 16 cards or less
+// even though the texture would support up to 32 cards
+// but the mouse click gets very inaccurate above 16
+#define MAX_CARDS 32
+
+// Time in ms until turned cards are removed/reset
+#define TIME_TO_CARD_RESET 1000
+
+// how thick the border around the selected card should be
 #define SELECT_BORDER_THICKNESS 0.1
 
 struct vector2 {
@@ -43,9 +59,16 @@ vector3 position{ 0, 0, -11 };
 
 int WINDOW_WIDTH = 800;
 int WINDOW_HEIGHT = 600;
-int card_rows = 2;
+// saves the state, if the player can turn a card
 bool canTurn = true;
-int angle = 0;
+// saves which players turn it is
+// Player 1 starts by default, when starting a new round
+// the player that one will start
+int player = 0;
+// how many pairs each player missed
+int missedPairs[2] = { 0, 0 };
+// how many pairs each player found
+int score[2] = { 0, 0 };
 
 // Data read from the header of the BMP file
 unsigned char header[54]; // Each BMP file begins by a 54-bytes header
@@ -55,10 +78,13 @@ unsigned int imageSize;   // = width*height*3
 // Actual RGB data
 unsigned char* imageData;
 
+// saves all the cards
 list<card> cards;
+// which card is selected
 int selectedId{ 0 };
 int cardRows{ 0 };
 int cardCols{ 0 };
+// which cards are turned right now
 int turnedCards[2]{-1, -1};
 
 // image file Strings
@@ -149,12 +175,6 @@ private:
 		glPopMatrix();
 	}
 };
-
-void moveCamera(float x, float y, float z) {
-	position.x += x;
-	position.y += y;
-	position.z += z;
-}
 
 int loadBMP_custom(char* imagepath) {
 	FILE* file;
@@ -473,6 +493,12 @@ int getClickedCardId(vector2 clickedPos) {
 	return sid;
 }
 
+void printGameOverInfo() {
+	cout << "Player 1 missed " << missedPairs[0] << " pairs and got " << score[0] << " pairs." << endl;
+	cout << "Player 2 missed " << missedPairs[1] << " pairs and got " << score[1] << " pairs." << endl;
+	cout << "Restarting game..." << endl;
+}
+
 void removeTurnedCards(int value) {
 	auto const toRemove = remove_if(cards.begin(), cards.end(), 
 		[](const card& c) { return c.state == FRONT; });
@@ -482,6 +508,11 @@ void removeTurnedCards(int value) {
 
 	if (cards.size() == 0) {
 		clearCards();
+		printGameOverInfo();
+		score[0] = 0;
+		score[1] = 0;
+		missedPairs[0] = 0;
+		missedPairs[1] = 0;
 		createCards();
 	}
 	
@@ -489,7 +520,6 @@ void removeTurnedCards(int value) {
 }
 
 void resetTurned(int value) {
-	cout << "End timer to reset cards" << endl;
 	for (auto& c : cards) {
 		if (c.state == FRONT) {
 			c.turn();
@@ -499,24 +529,23 @@ void resetTurned(int value) {
 	turnedCards[1] = -1;
 
 	canTurn = true;
+	player = player == 0 ? 1 : 0;
 	glutPostRedisplay();
 }
 
 void checkTurnedCards(int value) {
+	// checks if both cards are turned and have the same groupId
 	if (turnedCards[0] == turnedCards[1] && turnedCards[1] != -1) {
-		cout << "Start timer to remove cards" << endl;
-		glutTimerFunc(3000, removeTurnedCards, 0);
+		score[player]++;
+		glutTimerFunc(TIME_TO_CARD_RESET, removeTurnedCards, 0);
 		turnedCards[0] = -1;
 		turnedCards[1] = -1;
 		canTurn = false;
-	}
-	else {
-		if (value != 1) {
-			if (turnedCards[0] != -1 && turnedCards[1] != -1) {
-				cout << "Start timer to reset cards" << endl;
-				glutTimerFunc(3000, resetTurned, 0);
-				canTurn = false;
-			}
+	} else {
+		if (turnedCards[0] != -1 && turnedCards[1] != -1) {
+			missedPairs[player]++;
+			glutTimerFunc(TIME_TO_CARD_RESET, resetTurned, 0);
+			canTurn = false;
 		}
 	}
 }
@@ -552,44 +581,42 @@ void keyboard(unsigned char key, int x, int y) {
 	int newSelectedId;
 	switch (key) {
 	case 'a': // lowercase character 'a'
-		cout << "You just pressed 'a'" << endl;
-		//moveCamera(1.0, 0.0, 0.0);
-		newSelectedId = selectedId - card_rows;
-		if (newSelectedId >= 0) {
+		newSelectedId = selectedId - 1;
+		if (selectedId % cardCols != 0) {
 			selectedId = newSelectedId;
 		}
 		break;
 	case 'd': // lowercase character 'd'
-		cout << "You just pressed 'd'" << endl;
-		//moveCamera(-1.0, 0.0, 0.0);
-		newSelectedId = selectedId + card_rows;
-		if (newSelectedId < MAX_CARDS) {
+		newSelectedId = selectedId + 1;
+		if (selectedId % cardCols != (cardCols - 1)) {
 			selectedId = newSelectedId;
 		}
 		break;
 	case 'w': // lowercase character 'w'
-		cout << "You just pressed 'w'" << endl;
-		//moveCamera(0.0, -1.0, 0);
-		newSelectedId = selectedId - 1;
-		if (newSelectedId % card_rows == 0) {
+		newSelectedId = selectedId + cardCols;
+		if (newSelectedId < MAX_CARDS) {
 			selectedId = newSelectedId;
 		}
 		break;
 	case 's': // lowercase character 's'
-		cout << "You just pressed 's'" << endl;
-		//moveCamera(0.0, 1.0, 0);
-		newSelectedId = selectedId + 1;
-		if (newSelectedId % card_rows == (card_rows - 1)) {
+		newSelectedId = selectedId - cardCols;
+		if (newSelectedId >= 0) {
 			selectedId = newSelectedId;
+		}
+		break;
+	case ' ': // space to turn selected card
+		if (selectedId >= 0 && selectedId < MAX_CARDS) {
+			addTurnedCard(selectedId);
 		}
 		break;
 	case 27: // Escape key
 		glutDestroyWindow(windowid);
 		exit(0);
 		break;
-	default:
-		int keyid = (int)key - 48;
-		addTurnedCard(keyid);
+	default: // number keys on the keyboard to select cards
+		int keyId = (int)key - 48;
+		if (keyId >= 0 && keyId < MAX_CARDS)
+		addTurnedCard(keyId);
 		break;
 	}
 
@@ -628,7 +655,6 @@ void reshapeFunc(int x, int y) {
 }
 
 void idleFunc(void) {
-	checkTurnedCards(1);
 }
 
 int main(int argc, char** argv) {
