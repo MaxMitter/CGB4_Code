@@ -3,6 +3,7 @@
 #include "GL\glew.h"
 #include "GL\freeglut.h"
 #include <iostream>
+#include <list>
 #include <random>
 #include <vector>
 
@@ -10,9 +11,9 @@ using namespace std;
 
 class card;
 
-// HAS TO BE EVEN
-#define MAX_CARDS 6
-
+// HAS TO BE EVEN - works best with 16 cards or less
+#define MAX_CARDS 4
+#define TIME_TO_CARD_RESET 750 // Time in ms until turned cards are removed/reset
 #define SELECT_BORDER_THICKNESS 0.1
 
 struct vector2 {
@@ -35,9 +36,7 @@ struct textureMap {
 
 enum cardState {
 	BACK,
-	TURNING_FRONT,
-	FRONT,
-	TURNING_BACK
+	FRONT
 };
 
 vector3 position{ 0, 0, -11 };
@@ -45,7 +44,7 @@ vector3 position{ 0, 0, -11 };
 int WINDOW_WIDTH = 800;
 int WINDOW_HEIGHT = 600;
 int card_rows = 2;
-bool turning = false;
+bool canTurn = true;
 int angle = 0;
 
 // Data read from the header of the BMP file
@@ -56,10 +55,11 @@ unsigned int imageSize;   // = width*height*3
 // Actual RGB data
 unsigned char* imageData;
 
-vector<card> cards;
+list<card> cards;
 int selectedId{ 0 };
 int cardRows{ 0 };
 int cardCols{ 0 };
+int turnedCards[2]{-1, -1};
 
 // image file Strings
 static std::string cardBack = "img/test.bmp";
@@ -86,68 +86,14 @@ public:
 	int groupId{ 0 };
 	textureMap texture;
 	float size{ 0.0f };
-	float currentSize{ 0.0f };
 	cardState state{ BACK };
-	int turningPoint = 0;
 
-	bool turn() {
-		bool doneTurning = false;
-		float stepSize = 0.01f;
-		switch (state) {
-			case FRONT:
-				state = TURNING_BACK;
-				turningPoint = 10;
-				break;
-			case BACK:
-				state = TURNING_FRONT;
-				turningPoint = 0;
-				break;
-			case TURNING_BACK:
-				if (turningPoint > 5) {
-					currentSize -= stepSize;
-					turningPoint--;
-				} else if (turningPoint > 0) {
-					currentSize += stepSize;
-					turningPoint--;
-				} else if (turningPoint == 0) {
-					state = BACK;
-					doneTurning = true;
-				}
-				break;
-			case TURNING_FRONT:
-				if (turningPoint < 5) {
-					currentSize -= stepSize;
-					turningPoint++;
-				} else if (turningPoint < 10) {
-					currentSize += stepSize;
-					turningPoint++;
-				} else if (turningPoint >= 10) {
-					state = FRONT;
-					doneTurning = true;
-				}
-				break;
-		}
-		return doneTurning;
+	void turn() {
+		state = state == BACK ? FRONT : BACK;
 	}
 	
 	void draw() {
-		if (state == TURNING_FRONT) {
-			if (turningPoint < 5) {
-				draw_back();
-			}
-			else if (turningPoint < 10) {
-				draw_front();
-			}
-		}
-		else if (state == TURNING_BACK) {
-			if (turningPoint > 5) {
-				draw_front();
-			}
-			else if (turningPoint > 0) {
-				draw_back();
-			}
-		}
-		else if (state == BACK)
+		if (state == BACK)
 			draw_back();
 		else if (state == FRONT)
 			draw_front();
@@ -162,11 +108,12 @@ private:
 		glEnable(GL_TEXTURE_2D);
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 		glBindTexture(GL_TEXTURE_2D, cardBackName);
-		
+
+		glColor3f(1.0f, 1.0f, 1.0f);
 		glBegin(GL_QUADS);
 			glTexCoord2f(0, 0); glVertex3f(position.x, position.y, position.z);
-			glTexCoord2f(0, 1); glVertex3f(position.x, position.y + currentSize, position.z);
-			glTexCoord2f(1, 1); glVertex3f(position.x + size, position.y + currentSize, position.z);
+			glTexCoord2f(0, 1); glVertex3f(position.x, position.y + size, position.z);
+			glTexCoord2f(1, 1); glVertex3f(position.x + size, position.y + size, position.z);
 			glTexCoord2f(1, 0); glVertex3f(position.x + size, position.y, position.z);
 		glEnd();
 
@@ -182,8 +129,8 @@ private:
 		glBegin(GL_QUADS);
 			glTexCoord2f(texture.botLeft.x, texture.botLeft.y); glVertex3f(position.x, position.y, position.z);
 			glTexCoord2f(texture.topLeft.x, texture.topLeft.y); glVertex3f(position.x, position.y + size, position.z);
-			glTexCoord2f(texture.topRight.x, texture.topRight.y); glVertex3f(position.x + currentSize, position.y + size, position.z);
-			glTexCoord2f(texture.botRight.x, texture.botRight.y); glVertex3f(position.x + currentSize, position.y, position.z);
+			glTexCoord2f(texture.topRight.x, texture.topRight.y); glVertex3f(position.x + size, position.y + size, position.z);
+			glTexCoord2f(texture.botRight.x, texture.botRight.y); glVertex3f(position.x + size, position.y, position.z);
 		glEnd();
 
 		glFlush();
@@ -194,15 +141,14 @@ private:
 		glPushMatrix();
 		glColor3f(0.9f, 0.91f, 0.14f);
 		glBegin(GL_QUADS);
-		glVertex3f(position.x - SELECT_BORDER_THICKNESS, position.y - SELECT_BORDER_THICKNESS, position.z);
-		glVertex3f(position.x - SELECT_BORDER_THICKNESS, position.y + size + SELECT_BORDER_THICKNESS, position.z);
-		glVertex3f(position.x + currentSize + SELECT_BORDER_THICKNESS, position.y + size + SELECT_BORDER_THICKNESS, position.z);
-		glVertex3f(position.x + currentSize + SELECT_BORDER_THICKNESS, position.y - SELECT_BORDER_THICKNESS, position.z);
+			glVertex3f(position.x - SELECT_BORDER_THICKNESS, position.y - SELECT_BORDER_THICKNESS, position.z);
+			glVertex3f(position.x - SELECT_BORDER_THICKNESS, position.y + size + SELECT_BORDER_THICKNESS, position.z);
+			glVertex3f(position.x + size + SELECT_BORDER_THICKNESS, position.y + size + SELECT_BORDER_THICKNESS, position.z);
+			glVertex3f(position.x + size + SELECT_BORDER_THICKNESS, position.y - SELECT_BORDER_THICKNESS, position.z);
 		glEnd();
 		glPopMatrix();
 	}
 };
-
 
 void moveCamera(float x, float y, float z) {
 	position.x += x;
@@ -423,6 +369,54 @@ textureMap mapTexture(int groupId) {
 		map.topRight = vector2{ 1.0, 0.75 };
 		map.botRight = vector2{ 1.0, 0.5 };
 		break;
+	case 8:
+		map.botLeft = vector2{ 0.0, 0.25 };
+		map.topLeft = vector2{ 0.0, 0.5 };
+		map.topRight = vector2{ 0.25, 0.5 };
+		map.botRight = vector2{ 0.25, 0.25 };
+		break;
+	case 9:
+		map.botLeft = vector2{ 0.25, 0.25 };
+		map.topLeft = vector2{ 0.25, 0.5 };
+		map.topRight = vector2{ 0.5, 0.5 };
+		map.botRight = vector2{ 0.5, 0.25 };
+		break;
+	case 10:
+		map.botLeft = vector2{ 0.5, 0.25 };
+		map.topLeft = vector2{ 0.5, 0.5 };
+		map.topRight = vector2{ 0.75, 0.5 };
+		map.botRight = vector2{ 0.75, 0.25 };
+		break;
+	case 11:
+		map.botLeft = vector2{ 0.75, 0.25 };
+		map.topLeft = vector2{ 0.75, 0.5 };
+		map.topRight = vector2{ 1.0, 0.5 };
+		map.botRight = vector2{ 1.0, 0.25 };
+		break;
+	case 12:
+		map.botLeft = vector2{ 0.0, 0.0 };
+		map.topLeft = vector2{ 0.0, 0.25 };
+		map.topRight = vector2{ 0.25, 0.25 };
+		map.botRight = vector2{ 0.25, 0.0 };
+		break;
+	case 13:
+		map.botLeft = vector2{ 0.25, 0.0 };
+		map.topLeft = vector2{ 0.25, 0.25 };
+		map.topRight = vector2{ 0.5, 0.25 };
+		map.botRight = vector2{ 0.5, 0.0 };
+		break;
+	case 14:
+		map.botLeft = vector2{ 0.5, 0.0 };
+		map.topLeft = vector2{ 0.5, 0.25 };
+		map.topRight = vector2{ 0.75, 0.25 };
+		map.botRight = vector2{ 0.75, 0.0 };
+		break;
+	case 15:
+		map.botLeft = vector2{ 0.75, 0.0 };
+		map.topLeft = vector2{ 0.75, 0.25 };
+		map.topRight = vector2{ 1.0, 0.25 };
+		map.botRight = vector2{ 1.0, 0.0 };
+		break;
 	default:
 		map.botLeft = vector2{ 0.0, 0.0 };
 		map.topLeft = vector2{ 0.0, 1.0 };
@@ -459,7 +453,6 @@ void createCards(void) {
 			newCard.position = vector3{ botLeftViewport.x + (colSize * j), botLeftViewport.y + (rowSize * i), 0 };
 			newCard.texture = mapTexture(newCard.groupId);
 			newCard.size = cardSize;
-			newCard.currentSize = cardSize;
 			cards.push_back(newCard);
 		}
 	}
@@ -480,19 +473,78 @@ int getClickedCardId(vector2 clickedPos) {
 	return sid;
 }
 
-void timerFunction(int v) {
-	if (turning) {
-		for (auto& c : cards) {
-			if (c.id == selectedId) {
-				// returns true if turning is complete
-				turning = !c.turn();
-				break;
+void removeTurnedCards(int value) {
+	auto const toRemove = remove_if(cards.begin(), cards.end(), 
+		[](const card& c) { return c.state == FRONT; });
+	cards.erase(toRemove, cards.end());
+
+	canTurn = true;
+
+	if (cards.size() == 0) {
+		clearCards();
+		createCards();
+	}
+	
+	glutPostRedisplay();
+}
+
+void resetTurned(int value) {
+	cout << "End timer to reset cards" << endl;
+	for (auto& c : cards) {
+		if (c.state == FRONT) {
+			c.turn();
+		}
+	}
+	turnedCards[0] = -1;
+	turnedCards[1] = -1;
+
+	canTurn = true;
+	glutPostRedisplay();
+}
+
+void checkTurnedCards(int value) {
+	if (turnedCards[0] == turnedCards[1] && turnedCards[1] != -1) {
+		cout << "Start timer to remove cards" << endl;
+		glutTimerFunc(3000, removeTurnedCards, 0);
+		turnedCards[0] = -1;
+		turnedCards[1] = -1;
+		canTurn = false;
+	}
+	else {
+		if (value != 1) {
+			if (turnedCards[0] != -1 && turnedCards[1] != -1) {
+				cout << "Start timer to reset cards" << endl;
+				glutTimerFunc(3000, resetTurned, 0);
+				canTurn = false;
 			}
 		}
 	}
+}
 
-	if (turning)
-		glutTimerFunc(500, timerFunction, 0);
+void addTurnedCard(int clickedCardId) {
+	selectedId = clickedCardId;
+	int cardGroupId = -1;
+
+	if (canTurn) {
+		for (auto& c : cards) {
+			if (c.id == clickedCardId) {
+				if (c.state == BACK) {
+					cardGroupId = c.groupId;
+					c.turn();
+				}
+				break;
+			}
+		}
+
+		if (turnedCards[0] == -1) {
+			turnedCards[0] = cardGroupId;
+		}
+		else if (turnedCards[1] == -1) {
+			turnedCards[1] = cardGroupId;
+		}
+
+		checkTurnedCards(0);
+	}
 }
 
 /*-[Keyboard Callback]-------------------------------------------------------*/
@@ -531,28 +583,15 @@ void keyboard(unsigned char key, int x, int y) {
 			selectedId = newSelectedId;
 		}
 		break;
-	case 'r':
-		cout << "You just pressed 'r'" << endl;
-		moveCamera(0.0, 0.0, 1.0);
-		break;
-	case 'f':
-		cout << "You just pressed 'f'" << endl;
-		moveCamera(0.0, 0.0, -1.0);
-		break;
-	case ' ':
-		cout << "You just pressed 'Space'" << endl;
-		clearCards();
-		createCards();
-		break;
 	case 27: // Escape key
 		glutDestroyWindow(windowid);
 		exit(0);
 		break;
+	default:
+		int keyid = (int)key - 48;
+		addTurnedCard(keyid);
+		break;
 	}
-
-	int keyid = (int)key - 48;
-	selectedId = keyid;
-	cout << "Key: " << keyid << endl;
 
 	glutPostRedisplay();
 }
@@ -566,10 +605,8 @@ void onMouseClick(int button, int state, int x, int y) {
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		float newx = x / (WINDOW_WIDTH / 2.0f) - 1;
 		float newy = -(y / (WINDOW_HEIGHT / 2.0f) - 1);
-
-		selectedId = getClickedCardId(vector2{ newx, newy });
-		turning = true;
-		glutTimerFunc(5, timerFunction, 0);
+		
+		addTurnedCard(getClickedCardId(vector2{ newx, newy }));
 	}
 }
 
@@ -591,11 +628,7 @@ void reshapeFunc(int x, int y) {
 }
 
 void idleFunc(void) {
-	for (auto& c : cards) {
-		if (c.id == selectedId) {
-			c.turn();
-		}
-	}
+	checkTurnedCards(1);
 }
 
 int main(int argc, char** argv) {
