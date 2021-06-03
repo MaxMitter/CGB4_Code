@@ -17,7 +17,27 @@ public class ConvolutionFilter {
         double[][] returnImg = new double[width][height];
 
         //TODO: implementation required
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                double sum = 0.0;
+                double maskSum = 0.0;
+                for (int xOffset = -radius; xOffset <= radius; xOffset++) {
+                    for (int yOffset = -radius; yOffset <= radius; yOffset++) {
+                        int nbX = x + xOffset;
+                        int nbY = y + yOffset;
 
+                        if ((nbX >= 0 && nbX < width) && (nbY >= 0 && nbY < height)) {
+                            double maskValue = kernel[xOffset+radius][yOffset+radius];
+                            sum += inputImg[nbX][nbY] * maskValue;
+                            maskSum += maskValue;
+                        }
+                    }
+                }
+                double normFactor = 1.0/maskSum;
+                sum *= normFactor;
+                returnImg[x][y] = sum;
+            }
+        }
         return returnImg;
     }
 
@@ -35,6 +55,21 @@ public class ConvolutionFilter {
         double[][] returnImg = new double[width][height];
 
         //TODO: implementation required
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                double sum = 0.0;
+                for (int xOffset = -radius; xOffset <= radius; xOffset++) {
+                    for (int yOffset = -radius; yOffset <= radius; yOffset++) {
+                        int nbX = x + xOffset;
+                        int nbY = y + yOffset;
+
+                        if ((nbX >= 0 && nbX < width) && (nbY >= 0 && nbY < height))
+                            sum += inputImg[nbX][nbY] * kernel[xOffset+radius][yOffset+radius];
+                    }
+                }
+                returnImg[x][y] = sum;
+            }
+        }
 
         return returnImg;
     }
@@ -48,8 +83,14 @@ public class ConvolutionFilter {
     public static double[][] getMeanMask(int tgtRadius) {
         int size = 2 * tgtRadius + 1;
         double[][] kernelImg = new double[size][size];
+        double ratio = 1.0 / ((double) (size*size));
 
         //TODO: implementation required
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                kernelImg[x][y] = ratio;
+            }
+        }
 
         return kernelImg;
     }

@@ -6,7 +6,7 @@ import ij.process.ImageProcessor;
 /**
  * Plugin that inverts a given greyscale image. (Lab 5)
  */
-public class InvertTemplate_ implements PlugInFilter {
+public class Invert_ implements PlugInFilter {
 
 	public int setup(String arg, ImagePlus imp) {
 		if (arg.equals("about"))
@@ -22,8 +22,10 @@ public class InvertTemplate_ implements PlugInFilter {
 
         int[][] inDataArrInt = ImageJUtility.convertFrom1DByteArr(pixels, width, height);
 
-        // TODO
+        int[] invertTf = ImageTransformationFilter.getInversionTF(255);
+        int[][] transformedImage = ImageTransformationFilter.getTransformedImage(inDataArrInt, width, height, invertTf);
 
+        ImageJUtility.showNewImage(transformedImage, width, height, "Inverted Image");
 	} //run
 
 	void showAbout() {

@@ -7,7 +7,7 @@ import ij.process.ImageProcessor;
 /**
  * Applies a simple mean low-pass filter on a given image. (Lab 6)
  */
-public class MeanUserRadiusTemplate_ implements PlugInFilter {
+public class MeanUserRadius_ implements PlugInFilter {
 
 	public int setup(String arg, ImagePlus imp) {
 		if (arg.equals("about"))
@@ -24,6 +24,21 @@ public class MeanUserRadiusTemplate_ implements PlugInFilter {
 
 		// TODO
 
+		GenericDialog gd = new GenericDialog("User Input");
+		gd.addNumericField("Radius: ", tgtRadius, 0);
+		gd.showDialog();
+		if (gd.wasCanceled())
+			return;
+
+		tgtRadius = (int)gd.getNextNumber();
+
+		int[][] inDataArray = ImageJUtility.convertFrom1DByteArr(pixels, width, height);
+		double[][] doubles = ImageJUtility.convertToDoubleArr2D(inDataArray, width, height);
+		double[][] meanMask = ConvolutionFilter.getMeanMask(tgtRadius);
+
+		double[][] filtered = ConvolutionFilter.convolveDouble(doubles, width, height, meanMask, tgtRadius);
+
+		ImageJUtility.showNewImage(filtered, width, height, "Mean Filtered");
 	} //run
 
 	void showAbout() {

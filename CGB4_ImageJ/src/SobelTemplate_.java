@@ -24,6 +24,9 @@ public class SobelTemplate_ implements PlugInFilter {
         double[][] inDataArrDbl =
         		ImageJUtility.convertToDoubleArr2D(inDataArrInt, width, height);
         // TODO
+
+
+
 	} //run
 
 	void showAbout() {

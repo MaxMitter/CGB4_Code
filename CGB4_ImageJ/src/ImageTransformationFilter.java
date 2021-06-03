@@ -13,7 +13,11 @@ public class ImageTransformationFilter {
     public static int[][] getTransformedImage(int[][] inImg, int width, int height, int[] transferFunction) {
         int[][] returnImg = new int[width][height];
 
-        //TODO implementation required
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                returnImg[i][j] = transferFunction[inImg[i][j]];
+            }
+        }
 
         return returnImg;
     }
@@ -27,8 +31,9 @@ public class ImageTransformationFilter {
     public static int[] getInversionTF(int maxVal) {
         int[] transferFunction = new int[maxVal + 1];
 
-
-        //TODO implementation required
+        for (int i = 0; i < 255; i++) {
+            transferFunction[i] = 255 - i;
+        }
 
         return transferFunction;
     }
