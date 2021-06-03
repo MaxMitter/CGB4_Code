@@ -112,10 +112,10 @@ public class S1910307074_Mitter_04_ implements PlugInFilter {
         var obstacleDistanceMap = calculateDistanceMap(inDataArrInt, "OBSTACLE");
 
         var scaledObstacleDistanceMap = scaleDistanceMap(obstacleDistanceMap);
-        //showDistanceMap(scaledObstacleDistanceMap, "Obstacle Distance Map scaled");
+        showDistanceMap(scaledObstacleDistanceMap, "Obstacle Distance Map scaled");
 
         var distanceMapSafety = addObstacleSafetyToDistanceMap(inDataArrInt, obstacleDistanceMap);
-        //showDistanceMap(distanceMapSafety, "Distance Map unscaled with safety");
+        showDistanceMap(distanceMapSafety, "Distance Map unscaled with safety");
 
         System.out.println("Calculating shortest path with safety distance: ");
         var shortestPathWithSafety = calculateShortestPath(getMinStartPosition(inDataArrInt, distanceMapSafety), distanceMapSafety);
